@@ -1,3 +1,5 @@
+![Banner](banner.png)
+
 # file-content-sanitizer
 Removes or redacts sensitive data patterns (e.g., credit card numbers, email addresses, social security numbers) from a file, based on configurable regular expressions or predefined data type definitions. - Focused on File operations and analysis
 
