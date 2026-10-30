@@ -21,7 +21,7 @@ def setup_argparse():
         "--patterns",
         type=str,
         nargs="+",
-        help="Regular expression patterns to sanitize.  Example: --patterns '[0-9]{16}' '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'",
+        help="Regular expression patterns to sanitize.  Example: --patterns '[0-9]{16}' '[a-zA-Z0-9._%%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'",
     )
     parser.add_argument(
         "--redact",
@@ -120,6 +120,6 @@ def main():
 
 if __name__ == "__main__":
     # Usage example:
-    # python main.py input.txt output.txt --patterns '[0-9]{16}' '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' --redact
+    # python main.py input.txt output.txt --patterns '[0-9]{16}' '[a-zA-Z0-9._%%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' --redact
     # python main.py input.txt output.txt --patterns '[0-9]{9}' --log_level DEBUG
     main()
