@@ -9,6 +9,12 @@ import os
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+DEFAULT_PATTERNS = [
+    r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",
+    r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+    r"\b\d{3}-\d{2}-\d{4}\b",
+]
+
 
 def setup_argparse():
     """
@@ -21,7 +27,7 @@ def setup_argparse():
         "--patterns",
         type=str,
         nargs="+",
-        help="Regular expression patterns to sanitize.  Example: --patterns '[0-9]{16}' '[a-zA-Z0-9._%%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'",
+        help="Regular expression patterns to sanitize. When supplied, these replace the default patterns (credit card, email, and SSN). When omitted, the default patterns are used.",
     )
     parser.add_argument(
         "--redact",
@@ -59,27 +65,39 @@ def sanitize_file(input_file, output_file, patterns, redact=False):
         if not input_path.is_file():
             raise ValueError(f"Input path is not a file: {input_file}")
 
+        if os.path.realpath(input_file) == os.path.realpath(output_file):
+            raise ValueError(f"Refusing to overwrite the input file: {output_file}")
+
+        if patterns is None:
+            patterns = list(DEFAULT_PATTERNS)
+
         # Read the content of the input file
         with open(input_file, "r", encoding="utf-8") as f_in:
             content = f_in.read()
 
-        # Sanitize the content based on the provided patterns
+        if not content:
+            raise ValueError("No content to sanitize: input file is empty.")
+
+        compiled = []
         for pattern in patterns:
             try:
-                # Compile the regular expression pattern
-                compiled_pattern = re.compile(pattern)
-
-                # Sanitize the content using the compiled pattern
-                if redact:
-                    content = compiled_pattern.sub("[REDACTED]", content)
-                else:
-                    content = compiled_pattern.sub("", content)
-
-                logging.debug(f"Successfully applied pattern: {pattern}")
-
+                compiled.append(re.compile(pattern))
             except re.error as e:
                 logging.error(f"Invalid regular expression pattern: {pattern}. Error: {e}")
                 raise ValueError(f"Invalid regular expression pattern: {pattern}") from e
+
+        total_matches = 0
+        for compiled_pattern in compiled:
+            if redact:
+                content, count = compiled_pattern.subn("[REDACTED]", content)
+            else:
+                content, count = compiled_pattern.subn("", content)
+            total_matches += count
+
+        if total_matches == 0:
+            raise ValueError("No matches found: nothing was sanitized.")
+
+        logging.info(f"Redactions: {total_matches}")
 
         # Write the sanitized content to the output file
         with open(output_file, "w", encoding="utf-8") as f_out:
