@@ -9,6 +9,11 @@ import os
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# The card pattern is shape only: four groups of four digits, with an
+# optional space or dash between groups. There is no Luhn check, so any
+# sixteen digit string in that shape is treated as a card number, and a
+# real card number written without separators in one unbroken run also
+# matches, because each separator is optional.
 DEFAULT_PATTERNS = [
     r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",
     r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
@@ -78,6 +83,9 @@ def sanitize_file(input_file, output_file, patterns, redact=False):
         if not content:
             raise ValueError("No content to sanitize: input file is empty.")
 
+        # Patterns are compiled after the file is read, and every pattern must
+        # compile before any substitution runs. One bad pattern fails the whole
+        # run with the input untouched and no output written.
         compiled = []
         for pattern in patterns:
             try:
@@ -89,11 +97,21 @@ def sanitize_file(input_file, output_file, patterns, redact=False):
         total_matches = 0
         for compiled_pattern in compiled:
             if redact:
+                # Patterns run in order over each other's output. A value matched by an
+                # earlier pattern is gone before later patterns see the text, so the
+                # per pattern counts describe the text at that step, not the original.
                 content, count = compiled_pattern.subn("[REDACTED]", content)
             else:
+                # Removal deletes the matched text and nothing else. The spaces and
+                # punctuation that surrounded a removed value stay, so a removed email
+                # in mid sentence leaves a double space behind. Redact mode exists for
+                # readers who need the gap to stay visible.
                 content, count = compiled_pattern.subn("", content)
             total_matches += count
 
+        # The output file is opened only after this check. A run with no matches
+        # raises here and leaves no copy of the input sitting in the output path
+        # pretending to be a sanitized result.
         if total_matches == 0:
             raise ValueError("No matches found: nothing was sanitized.")
 
